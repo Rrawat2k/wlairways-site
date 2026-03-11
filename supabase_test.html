@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head><title>WLA Supabase Test</title>
+<style>body{font-family:sans-serif;padding:40px;background:#111;color:#fff;} .ok{color:#22c55e;} .fail{color:#cc1e1e;} .pending{color:#f59e0b;} pre{background:#1a1a1a;padding:16px;border-radius:8px;font-size:13px;overflow-x:auto;}</style>
+</head>
+<body>
+<h2>White Line Airways — Supabase Connection Test</h2>
+<p style="color:#666;margin-bottom:32px;">This page tests all 3 tables. Run it after completing Step 1.</p>
+
+<div id="results"></div>
+
+<script>
+const SB_URL = 'https://otwrpzardanqiphqxkuf.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90d3JwemFyZGFucWlwaHF4a3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNDk3MzMsImV4cCI6MjA4ODcyNTczM30.rH5jNcDmgmfuTaBrIaLwyQl6aNtOfSdNVrEO6BVv16k';
+
+const out = document.getElementById('results');
+
+function row(label, status, detail) {
+  const color = status === 'ok' ? '#22c55e' : status === 'fail' ? '#cc1e1e' : '#f59e0b';
+  const icon  = status === 'ok' ? '✓' : status === 'fail' ? '✗' : '...';
+  out.innerHTML += `<div style="padding:14px 0;border-bottom:1px solid #222;display:flex;align-items:flex-start;gap:16px;">
+    <span style="color:${color};font-size:20px;font-weight:bold;flex-shrink:0;">${icon}</span>
+    <div><div style="font-size:15px;font-weight:600;">${label}</div>
+    <div style="font-size:13px;color:#666;margin-top:4px;">${detail}</div></div>
+  </div>`;
+}
+
+async function sb(endpoint) {
+  const r = await fetch(SB_URL + endpoint, {
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+  return r.json();
+}
+
+async function runTests() {
+  out.innerHTML = '<div style="color:#f59e0b;margin-bottom:20px;">Running tests...</div>';
+  const results = [];
+
+  // Test 1: blog_posts table
+  try {
+    const posts = await sb('/rest/v1/blog_posts?select=id,title,status&order=created_at.desc');
+    const pub = posts.filter(p => p.status === 'published').length;
+    row('blog_posts table', 'ok', `${posts.length} total posts, ${pub} published. Sample: "${posts[0]?.title?.slice(0,50) || 'none'}..."`);
+    results.push(true);
+  } catch(e) {
+    row('blog_posts table', 'fail', 'Error: ' + e.message + ' — Did you run the SQL setup?');
+    results.push(false);
+  }
+
+  // Test 2: leads table
+  try {
+    const leads = await sb('/rest/v1/leads?select=id,form_type,created_at&order=created_at.desc&limit=5');
+    row('leads table', 'ok', `${leads.length} leads found. Ready to receive form submissions.`);
+    results.push(true);
+  } catch(e) {
+    row('leads table', 'fail', 'Error: ' + e.message);
+    results.push(false);
+  }
+
+  // Test 3: admin_users table
+  try {
+    const admins = await sb('/rest/v1/admin_users?select=username');
+    row('admin_users table', 'ok', `${admins.length} admin user(s): ${admins.map(a=>a.username).join(', ')}`);
+    results.push(true);
+  } catch(e) {
+    row('admin_users table', 'fail', 'Error: ' + e.message);
+    results.push(false);
+  }
+
+  // Test 4: insert a test lead
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/leads', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ form_type: 'test', name: 'Test User', phone: '9999999999', message: 'Supabase connection test', status: 'new' })
+    });
+    if (r.ok || r.status === 201) {
+      row('Insert lead test', 'ok', 'Successfully wrote a test lead to the database. Forms are working!');
+      results.push(true);
+    } else {
+      throw new Error('Status ' + r.status);
+    }
+  } catch(e) {
+    row('Insert lead test', 'fail', 'Error: ' + e.message);
+    results.push(false);
+  }
+
+  // Summary
+  const passed = results.filter(Boolean).length;
+  const color  = passed === results.length ? '#22c55e' : passed >= 2 ? '#f59e0b' : '#cc1e1e';
+  out.innerHTML += `
+    <div style="margin-top:28px;padding:20px;background:#1a1a1a;border-radius:10px;border:1px solid #333;text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:${color};margin-bottom:8px;">${passed}/${results.length} Tests Passed</div>
+      <div style="color:#666;font-size:14px;">${passed === results.length ? '🎉 All good! Your Supabase is fully connected.' : 'Some tests failed — check the SQL setup step.'}</div>
+    </div>`;
+}
+
+runTests();
+</script>
+</body>
+</html>
