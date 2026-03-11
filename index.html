@@ -2680,6 +2680,8 @@ body { font-family:var(--fb); background:var(--light); color:var(--tl); overflow
   </div>
 </footer>
 
+<!-- SheetJS for Excel import/export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 
 // ══════════════════════════════════════════════════════════════
@@ -4074,7 +4076,12 @@ ${[...staticPages,...postUrls].map(p=>`  <url>
 
   // Init blog on load if hash = blog
   window.addEventListener('load', function() {
-    if (location.hash === '#blog') filterBlogs('all');
+    const initHash = location.hash.replace('#','') || 'home';
+    if (pages.includes(initHash)) {
+      showPage(initHash);
+    } else {
+      showPage('home');
+    }
     updateSEOMeta(PAGE_SEO['home']);
   });
 
